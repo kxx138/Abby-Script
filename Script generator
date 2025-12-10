@@ -1,0 +1,631 @@
+import React, { useState, useRef } from 'react';
+import { Printer, Edit3, FileText, ChevronDown, ChevronUp, Download, Save } from 'lucide-react';
+
+// --- Types ---
+
+interface FormData {
+  part1: string;
+  part2: {
+    school: string;
+    home: string;
+    peer: string;
+    emotions: string;
+    additional: string;
+  };
+  part3: {
+    documentation: string;
+    strengths: string;
+    environment: string;
+    intro: string;
+  };
+  part4: {
+    skill1: { name: string; desc: string };
+    skill2: { name: string; desc: string };
+    optional: { name: string; desc: string };
+  };
+  part5: {
+    principle: string;
+    demonstration: string;
+  };
+  part6: {
+    sectionA: { greeting: string; role: string; confidentiality: string; starter: string };
+    sectionB: { prepRef: string; invite: string; skill1Show: string };
+    sectionC: { concern: string; emotion: string };
+    sectionD: { feelingReflect: string; validation: string };
+    sectionE: { clarifying: string; followup: string };
+    sectionF: { reinforcement: string };
+    sectionG: { summary: string; nextSteps: string };
+  };
+  notes: string;
+}
+
+const initialData: FormData = {
+  part1: '',
+  part2: { school: '', home: '', peer: '', emotions: '', additional: '' },
+  part3: { documentation: '', strengths: '', environment: '', intro: '' },
+  part4: {
+    skill1: { name: '', desc: '' },
+    skill2: { name: '', desc: '' },
+    optional: { name: '', desc: '' },
+  },
+  part5: { principle: 'Self-determination (client autonomy)', demonstration: '' },
+  part6: {
+    sectionA: { greeting: '', role: '', confidentiality: '', starter: '' },
+    sectionB: { prepRef: '', invite: '', skill1Show: '' },
+    sectionC: { concern: '', emotion: '' },
+    sectionD: { feelingReflect: '', validation: '' },
+    sectionE: { clarifying: '', followup: '' },
+    sectionF: { reinforcement: '' },
+    sectionG: { summary: '', nextSteps: '' },
+  },
+  notes: '',
+};
+
+export default function SessionOutlineApp() {
+  const [formData, setFormData] = useState<FormData>(initialData);
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+  const [activeSection, setActiveSection] = useState<string | null>('part1');
+
+  // Helper to update nested state
+  const updateField = (path: string, value: string) => {
+    const keys = path.split('.');
+    setFormData((prev) => {
+      const newData = { ...prev };
+      let current: any = newData;
+      for (let i = 0; i < keys.length - 1; i++) {
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
+      return newData;
+    });
+  };
+
+  const toggleSection = (section: string) => {
+    setActiveSection(activeSection === section ? null : section);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // --- Render Components ---
+
+  const SectionHeader = ({ title, id, isOpen }: { title: string; id: string; isOpen: boolean }) => (
+    <button
+      onClick={() => toggleSection(id)}
+      className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
+        isOpen ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800 border-b'
+      }`}
+    >
+      <span className="font-semibold text-lg">{title}</span>
+      {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+    </button>
+  );
+
+  const InputGroup = ({ label, subLabel, value, onChange, placeholder, textArea = false }: any) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+        {subLabel && <span className="text-gray-500 font-normal ml-1">({subLabel})</span>}
+      </label>
+      {textArea ? (
+        <textarea
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      ) : (
+        <input
+          type="text"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      )}
+    </div>
+  );
+
+  // --- Main Form View ---
+  const renderEditView = () => (
+    <div className="max-w-3xl mx-auto space-y-4 pb-20">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 bg-indigo-50 border-b border-indigo-100">
+          <h2 className="text-2xl font-bold text-indigo-900">Session Script Builder</h2>
+          <p className="text-indigo-700">Fill in the sections below to generate your session outline.</p>
+        </div>
+
+        {/* Part 1 */}
+        <SectionHeader title="Part 1 — Session Segment" id="part1" isOpen={activeSection === 'part1'} />
+        {activeSection === 'part1' && (
+          <div className="p-6 bg-white">
+            <InputGroup
+              label="Briefly describe which part of the session your script will cover"
+              value={formData.part1}
+              onChange={(v: string) => updateField('part1', v)}
+              textArea
+            />
+          </div>
+        )}
+
+        {/* Part 2 */}
+        <SectionHeader title="Part 2 — Abby’s Perspective" id="part2" isOpen={activeSection === 'part2'} />
+        {activeSection === 'part2' && (
+          <div className="p-6 bg-white">
+            <InputGroup
+              label="School concerns"
+              value={formData.part2.school}
+              onChange={(v: string) => updateField('part2.school', v)}
+            />
+            <InputGroup
+              label="Home/family concerns"
+              value={formData.part2.home}
+              onChange={(v: string) => updateField('part2.home', v)}
+            />
+            <InputGroup
+              label="Peer/romantic concerns"
+              value={formData.part2.peer}
+              onChange={(v: string) => updateField('part2.peer', v)}
+            />
+            <InputGroup
+              label="Emotions Abby may express"
+              placeholder="e.g., overwhelmed, frustrated"
+              value={formData.part2.emotions}
+              onChange={(v: string) => updateField('part2.emotions', v)}
+            />
+            <InputGroup
+              label="Additional perspective details"
+              value={formData.part2.additional}
+              onChange={(v: string) => updateField('part2.additional', v)}
+              textArea
+            />
+          </div>
+        )}
+
+        {/* Part 3 */}
+        <SectionHeader title="Part 3 — Advance Preparation" id="part3" isOpen={activeSection === 'part3'} />
+        {activeSection === 'part3' && (
+          <div className="p-6 bg-white">
+            <p className="mb-4 text-sm text-gray-500 italic">Choose 1–3 areas to elaborate on:</p>
+            <InputGroup
+              label="Documentation reviewed"
+              placeholder="e.g., attendance, discipline, grades"
+              value={formData.part3.documentation}
+              onChange={(v: string) => updateField('part3.documentation', v)}
+            />
+            <InputGroup
+              label="Strength-based preparation"
+              placeholder="e.g., incorporating art"
+              value={formData.part3.strengths}
+              onChange={(v: string) => updateField('part3.strengths', v)}
+            />
+            <InputGroup
+              label="Environment setup"
+              placeholder="Privacy, calm space, fidgets..."
+              value={formData.part3.environment}
+              onChange={(v: string) => updateField('part3.environment', v)}
+            />
+            <InputGroup
+              label="Planned introductory statements"
+              placeholder="Role, purpose, expectations"
+              value={formData.part3.intro}
+              onChange={(v: string) => updateField('part3.intro', v)}
+            />
+          </div>
+        )}
+
+        {/* Part 4 */}
+        <SectionHeader title="Part 4 — Interpersonal Skills" id="part4" isOpen={activeSection === 'part4'} />
+        {activeSection === 'part4' && (
+          <div className="p-6 bg-white space-y-6">
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-gray-700 mb-3">Skill #1</h4>
+              <InputGroup
+                label="Skill Name"
+                value={formData.part4.skill1.name}
+                onChange={(v: string) => updateField('part4.skill1.name', v)}
+              />
+              <InputGroup
+                label="Why selected / How demonstrated"
+                value={formData.part4.skill1.desc}
+                onChange={(v: string) => updateField('part4.skill1.desc', v)}
+                textArea
+              />
+            </div>
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-gray-700 mb-3">Skill #2</h4>
+              <InputGroup
+                label="Skill Name"
+                value={formData.part4.skill2.name}
+                onChange={(v: string) => updateField('part4.skill2.name', v)}
+              />
+              <InputGroup
+                label="Why selected / How demonstrated"
+                value={formData.part4.skill2.desc}
+                onChange={(v: string) => updateField('part4.skill2.desc', v)}
+                textArea
+              />
+            </div>
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-gray-700 mb-3">Optional Skill</h4>
+              <InputGroup
+                label="Skill Name"
+                value={formData.part4.optional.name}
+                onChange={(v: string) => updateField('part4.optional.name', v)}
+              />
+              <InputGroup
+                label="How it will appear"
+                value={formData.part4.optional.desc}
+                onChange={(v: string) => updateField('part4.optional.desc', v)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Part 5 */}
+        <SectionHeader title="Part 5 — Ethical Principle" id="part5" isOpen={activeSection === 'part5'} />
+        {activeSection === 'part5' && (
+          <div className="p-6 bg-white">
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Choose Principle</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md bg-white"
+                value={formData.part5.principle}
+                onChange={(e) => updateField('part5.principle', e.target.value)}
+              >
+                <option>Self-determination (client autonomy)</option>
+                <option>Informed consent (role + confidentiality)</option>
+                <option>Dignity and worth of the person</option>
+                <option>Professional boundaries</option>
+              </select>
+            </div>
+            <InputGroup
+              label="You will show this ethical standard by:"
+              value={formData.part5.demonstration}
+              onChange={(v: string) => updateField('part5.demonstration', v)}
+              textArea
+            />
+          </div>
+        )}
+
+        {/* Part 6 */}
+        <SectionHeader title="Part 6 — Script Flow Map" id="part6" isOpen={activeSection === 'part6'} />
+        {activeSection === 'part6' && (
+          <div className="p-6 bg-white space-y-6">
+            
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">A. Opening</h3>
+              <div className="grid grid-cols-1 gap-2">
+                <InputGroup label="Greeting" value={formData.part6.sectionA.greeting} onChange={(v: string) => updateField('part6.sectionA.greeting', v)} />
+                <InputGroup label="Explanation of role" value={formData.part6.sectionA.role} onChange={(v: string) => updateField('part6.sectionA.role', v)} />
+                <InputGroup label="Confidentiality statement" value={formData.part6.sectionA.confidentiality} onChange={(v: string) => updateField('part6.sectionA.confidentiality', v)} />
+                <InputGroup label="Low-pressure engagement starter" value={formData.part6.sectionA.starter} onChange={(v: string) => updateField('part6.sectionA.starter', v)} />
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">B. Engagement & Rapport</h3>
+              <InputGroup label="Reference preparation" placeholder="e.g. art interest" value={formData.part6.sectionB.prepRef} onChange={(v: string) => updateField('part6.sectionB.prepRef', v)} />
+              <InputGroup label="Invitation to converse/activity" value={formData.part6.sectionB.invite} onChange={(v: string) => updateField('part6.sectionB.invite', v)} />
+              <InputGroup label="How you show Skill #1" value={formData.part6.sectionB.skill1Show} onChange={(v: string) => updateField('part6.sectionB.skill1Show', v)} />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">C. Abby Shares a Concern</h3>
+              <InputGroup label="Description of concern" value={formData.part6.sectionC.concern} onChange={(v: string) => updateField('part6.sectionC.concern', v)} textArea />
+              <InputGroup label="Emotion behind it" value={formData.part6.sectionC.emotion} onChange={(v: string) => updateField('part6.sectionC.emotion', v)} />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">D. Apply Skill #1</h3>
+              <InputGroup label="Feeling you will reflect back" value={formData.part6.sectionD.feelingReflect} onChange={(v: string) => updateField('part6.sectionD.feelingReflect', v)} textArea />
+              <InputGroup label="Validating statement" value={formData.part6.sectionD.validation} onChange={(v: string) => updateField('part6.sectionD.validation', v)} textArea />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">E. Apply Skill #2</h3>
+              <InputGroup label="Clarifying/Barrier statement" value={formData.part6.sectionE.clarifying} onChange={(v: string) => updateField('part6.sectionE.clarifying', v)} textArea />
+              <InputGroup label="Follow-up question/prompt" value={formData.part6.sectionE.followup} onChange={(v: string) => updateField('part6.sectionE.followup', v)} textArea />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">F. Ethical Reinforcement</h3>
+              <InputGroup label="Reinforce autonomy/understanding" value={formData.part6.sectionF.reinforcement} onChange={(v: string) => updateField('part6.sectionF.reinforcement', v)} textArea />
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded">
+              <h3 className="font-bold text-indigo-800 mb-2">G. Closing</h3>
+              <InputGroup label="Summary statement" value={formData.part6.sectionG.summary} onChange={(v: string) => updateField('part6.sectionG.summary', v)} textArea />
+              <InputGroup label="Offer for next steps" value={formData.part6.sectionG.nextSteps} onChange={(v: string) => updateField('part6.sectionG.nextSteps', v)} />
+            </div>
+
+          </div>
+        )}
+
+        {/* Notes */}
+        <SectionHeader title="Notes for Myself" id="notes" isOpen={activeSection === 'notes'} />
+        {activeSection === 'notes' && (
+          <div className="p-6 bg-white">
+             <InputGroup
+              label="Any lines or ideas to expand"
+              value={formData.notes}
+              onChange={(v: string) => updateField('notes', v)}
+              textArea
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // --- Print/Preview View ---
+  const renderPreviewView = () => (
+    <div id="print-area" className="max-w-4xl mx-auto bg-white p-12 shadow-2xl min-h-screen text-gray-900 leading-relaxed print:shadow-none print:p-0">
+      <div className="border-b-2 border-gray-800 pb-4 mb-8">
+        <h1 className="text-3xl font-bold uppercase tracking-wider text-center">Session Outline Script</h1>
+      </div>
+
+      {/* Part 1 */}
+      <section className="mb-8">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 1 — Session Segment</h2>
+        <div className="mt-3 pl-4">
+          <p className="font-medium text-gray-600 mb-1 text-sm uppercase">Description</p>
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded min-h-[3rem] whitespace-pre-wrap">{formData.part1 || '—'}</div>
+        </div>
+      </section>
+
+      {/* Part 2 */}
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 2 — Abby’s Perspective</h2>
+        <div className="mt-3 pl-4 grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-medium text-gray-600 text-sm">School concerns</p>
+              <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.school}</div>
+            </div>
+            <div>
+              <p className="font-medium text-gray-600 text-sm">Home/family concerns</p>
+              <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.home}</div>
+            </div>
+          </div>
+          <div>
+            <p className="font-medium text-gray-600 text-sm">Peer/romantic concerns</p>
+            <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.peer}</div>
+          </div>
+          <div>
+            <p className="font-medium text-gray-600 text-sm">Emotions</p>
+            <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.emotions}</div>
+          </div>
+           <div>
+            <p className="font-medium text-gray-600 text-sm">Additional Details</p>
+            <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.additional}</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Part 3 */}
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 3 — Evidence of Preparation</h2>
+        <div className="mt-3 pl-4 space-y-3">
+          {formData.part3.documentation && (
+            <div>
+              <span className="font-bold text-sm">Documentation Reviewed:</span> {formData.part3.documentation}
+            </div>
+          )}
+          {formData.part3.strengths && (
+            <div>
+              <span className="font-bold text-sm">Strength-based prep:</span> {formData.part3.strengths}
+            </div>
+          )}
+          {formData.part3.environment && (
+            <div>
+              <span className="font-bold text-sm">Environment setup:</span> {formData.part3.environment}
+            </div>
+          )}
+          {formData.part3.intro && (
+            <div>
+              <span className="font-bold text-sm">Introductory statements:</span> {formData.part3.intro}
+            </div>
+          )}
+          {!formData.part3.documentation && !formData.part3.strengths && !formData.part3.environment && !formData.part3.intro && (
+             <p className="text-gray-400 italic">No preparation details added.</p>
+          )}
+        </div>
+      </section>
+
+      {/* Part 4 */}
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 4 — Communication Skills</h2>
+        <div className="mt-3 pl-4 grid gap-6">
+          <div>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="font-bold text-indigo-900 uppercase">Skill #1:</span>
+              <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.skill1.name}</span>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">Rationale / Demonstration:</p>
+            <div className="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm">{formData.part4.skill1.desc}</div>
+          </div>
+          
+          <div>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="font-bold text-indigo-900 uppercase">Skill #2:</span>
+              <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.skill2.name}</span>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">Rationale / Demonstration:</p>
+            <div className="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm">{formData.part4.skill2.desc}</div>
+          </div>
+
+          {formData.part4.optional.name && (
+            <div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="font-bold text-gray-500 uppercase">Optional Skill:</span>
+                <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.optional.name}</span>
+              </div>
+              <div className="text-sm italic">{formData.part4.optional.desc}</div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Part 5 */}
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 5 — Ethical Principle</h2>
+        <div className="mt-3 pl-4">
+           <div className="flex items-center gap-2 mb-2">
+              <span className="font-bold text-sm text-gray-600">Selected Principle:</span>
+              <span className="font-bold text-lg">{formData.part5.principle}</span>
+           </div>
+           <p className="text-sm text-gray-600 mb-1">Demonstrated by:</p>
+           <div className="p-3 bg-gray-50 border border-gray-200 rounded whitespace-pre-wrap">{formData.part5.demonstration}</div>
+        </div>
+      </section>
+
+      {/* Part 6 */}
+      <section className="mb-8">
+        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 6 — Script Flow Map</h2>
+        <div className="mt-4 pl-4 space-y-6">
+          
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">A. Opening</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><span className="font-semibold">Greeting:</span> {formData.part6.sectionA.greeting}</li>
+              <li><span className="font-semibold">Role:</span> {formData.part6.sectionA.role}</li>
+              <li><span className="font-semibold">Confidentiality:</span> {formData.part6.sectionA.confidentiality}</li>
+              <li><span className="font-semibold">Starter:</span> {formData.part6.sectionA.starter}</li>
+            </ul>
+          </div>
+
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">B. Engagement</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><span className="font-semibold">Prep Reference:</span> {formData.part6.sectionB.prepRef}</li>
+              <li><span className="font-semibold">Invite:</span> {formData.part6.sectionB.invite}</li>
+              <li><span className="font-semibold">Skill #1 Moment:</span> {formData.part6.sectionB.skill1Show}</li>
+            </ul>
+          </div>
+
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">C. The Concern</h3>
+            <div className="pl-2 border-l-2 border-gray-300 mb-2">
+              <p className="italic text-gray-700">{formData.part6.sectionC.concern}</p>
+            </div>
+            <p><span className="font-semibold">Emotion:</span> {formData.part6.sectionC.emotion}</p>
+          </div>
+
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">D. Applying Skill #1</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-3 rounded">
+                <span className="block text-xs font-bold uppercase text-gray-500">Reflection</span>
+                {formData.part6.sectionD.feelingReflect}
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <span className="block text-xs font-bold uppercase text-gray-500">Validation</span>
+                {formData.part6.sectionD.validation}
+              </div>
+            </div>
+          </div>
+
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">E. Applying Skill #2</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-3 rounded">
+                <span className="block text-xs font-bold uppercase text-gray-500">Barrier/Clarify</span>
+                {formData.part6.sectionE.clarifying}
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <span className="block text-xs font-bold uppercase text-gray-500">Follow-Up</span>
+                {formData.part6.sectionE.followup}
+              </div>
+            </div>
+          </div>
+
+          <div className="break-inside-avoid">
+            <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">F. Ethical Reinforcement</h3>
+            <p className="pl-2 border-l-2 border-indigo-200">{formData.part6.sectionF.reinforcement}</p>
+          </div>
+
+          <div className="break-inside-avoid">
+             <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">G. Closing</h3>
+             <p><span className="font-semibold">Summary:</span> {formData.part6.sectionG.summary}</p>
+             <p className="mt-2"><span className="font-semibold">Next Steps:</span> {formData.part6.sectionG.nextSteps}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Notes */}
+      {formData.notes && (
+        <section className="mb-8 break-inside-avoid">
+           <h2 className="text-lg font-bold bg-gray-800 text-white p-2 uppercase text-sm tracking-wide">Notes</h2>
+           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded mt-2 whitespace-pre-wrap font-handwriting">
+             {formData.notes}
+           </div>
+        </section>
+      )}
+      
+      <div className="mt-12 pt-4 border-t border-gray-300 text-center text-gray-400 text-sm">
+        Generated via Session Outline Tool
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
+      
+      {/* Top Navigation Bar - Hidden on Print */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 print:hidden shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <FileText className="text-indigo-600" />
+            <span className="font-bold text-xl text-gray-800">OutlineGen</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('edit')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                viewMode === 'edit' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Edit3 size={18} />
+              <span className="hidden sm:inline">Edit</span>
+            </button>
+            <button
+              onClick={() => setViewMode('preview')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                viewMode === 'preview' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <FileText size={18} />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors ml-2"
+            >
+              <Printer size={18} />
+              <span className="hidden sm:inline">Print / PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="py-8 px-4 print:p-0">
+        {viewMode === 'edit' ? renderEditView() : renderPreviewView()}
+      </div>
+
+      {/* CSS For Print Styles */}
+      <style>{`
+        @media print {
+          @page { margin: 1cm; size: auto; }
+          body { background: white; -webkit-print-color-adjust: exact; }
+          /* Force preview to be visible during print even if we are in Edit mode */
+          .print\\:hidden { display: none !important; }
+          .print\\:p-0 { padding: 0 !important; }
+          .print\\:shadow-none { box-shadow: none !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
