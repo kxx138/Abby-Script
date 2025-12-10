@@ -4,533 +4,504 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Session Outline Generator</title>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Print Styles -->
     <style>
-        @media print {
-            @page { margin: 1cm; size: auto; }
-            body { background: white; -webkit-print-color-adjust: exact; }
-            .print-hidden { display: none !important; }
-            .print-p-0 { padding: 0 !important; }
-            .print-shadow-none { box-shadow: none !important; }
-            .no-break { break-inside: avoid; }
+        body { font-family: 'Inter', sans-serif; }
+        .font-handwriting { font-family: 'Patrick Hand', cursive; }
+        
+        /* Accordion transition styles */
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
         }
-        /* Handwritting-ish font for notes */
-        @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
-        .font-handwriting { font-family: 'Patrick Hand', cursive; font-size: 1.1em; }
+        .accordion-content.active {
+            max-height: 2000px; /* Arbitrary large height */
+            opacity: 1;
+        }
+        .chevron { transition: transform 0.3s; }
+        .chevron.rotate { transform: rotate(180deg); }
+
+        /* Print Styles */
+        @media print {
+            @page { margin: 0.5cm; size: auto; }
+            body { background: white; -webkit-print-color-adjust: exact; }
+            
+            /* Hide UI elements */
+            #navbar, #edit-mode-container, .no-print { display: none !important; }
+            
+            /* Force Preview visibility */
+            #preview-mode-container { 
+                display: block !important; 
+                box-shadow: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            
+            /* Clean up breaks */
+            .break-inside-avoid { break-inside: avoid; }
+            .section-header { background-color: #f3f4f6 !important; border-left: 4px solid #1f2937 !important; }
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans">
-    <div id="root"></div>
+<body class="bg-gray-100 text-gray-900 min-h-screen pb-10">
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        // --- Icons (Inline SVGs to avoid dependency issues) ---
-        const IconPrinter = ({ size = 20 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-        );
-        const IconEdit = ({ size = 20 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-        );
-        const IconFileText = ({ size = 20 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        );
-        const IconChevronDown = ({ size = 20 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        );
-        const IconChevronUp = ({ size = 20 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-        );
-
-        // --- Main Application ---
-        
-        const initialData = {
-            part1: '',
-            part2: { school: '', home: '', peer: '', emotions: '', additional: '' },
-            part3: { documentation: '', strengths: '', environment: '', intro: '' },
-            part4: {
-                skill1: { name: '', desc: '' },
-                skill2: { name: '', desc: '' },
-                optional: { name: '', desc: '' },
-            },
-            part5: { principle: 'Self-determination (client autonomy)', demonstration: '' },
-            part6: {
-                sectionA: { greeting: '', role: '', confidentiality: '', starter: '' },
-                sectionB: { prepRef: '', invite: '', skill1Show: '' },
-                sectionC: { concern: '', emotion: '' },
-                sectionD: { feelingReflect: '', validation: '' },
-                sectionE: { clarifying: '', followup: '' },
-                sectionF: { reinforcement: '' },
-                sectionG: { summary: '', nextSteps: '' },
-            },
-            notes: '',
-        };
-
-        function App() {
-            const [formData, setFormData] = useState(initialData);
-            const [viewMode, setViewMode] = useState('edit');
-            const [activeSection, setActiveSection] = useState('part1');
-
-            const updateField = (path, value) => {
-                const keys = path.split('.');
-                setFormData((prev) => {
-                    const newData = { ...prev };
-                    let current = newData;
-                    for (let i = 0; i < keys.length - 1; i++) {
-                        // Handle strict typing safety check logic (simplified for JS)
-                        if (!current[keys[i]]) current[keys[i]] = {}; 
-                        current = current[keys[i]];
-                    }
-                    current[keys[keys.length - 1]] = value;
-                    return newData;
-                });
-            };
-
-            const toggleSection = (section) => {
-                setActiveSection(activeSection === section ? null : section);
-            };
-
-            const handlePrint = () => {
-                window.print();
-            };
-
-            // --- Components ---
-
-            const SectionHeader = ({ title, id, isOpen }) => (
-                <button
-                    onClick={() => toggleSection(id)}
-                    className={`w-full flex items-center justify-between p-4 text-left transition-colors ${
-                        isOpen ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800 border-b'
-                    }`}
-                >
-                    <span className="font-semibold text-lg">{title}</span>
-                    {isOpen ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
+    <!-- Navigation Bar -->
+    <nav id="navbar" class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span class="font-bold text-xl text-gray-800">SessionGen</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="switchView('edit')" id="btn-edit" class="flex items-center gap-2 px-4 py-2 rounded-md transition-colors bg-indigo-100 text-indigo-700 font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Edit
                 </button>
-            );
+                <button onclick="switchView('preview')" id="btn-preview" class="flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-gray-600 hover:bg-gray-100">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    Preview
+                </button>
+                <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors ml-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    PDF
+                </button>
+            </div>
+        </div>
+    </nav>
 
-            const InputGroup = ({ label, subLabel, value, onChange, placeholder, textArea = false }) => (
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {label}
-                        {subLabel && <span className="text-gray-500 font-normal ml-1">({subLabel})</span>}
-                    </label>
-                    {textArea ? (
-                        <textarea
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            rows={3}
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            placeholder={placeholder}
-                        />
-                    ) : (
-                        <input
-                            type="text"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            placeholder={placeholder}
-                        />
-                    )}
+    <!-- MAIN CONTENT AREA -->
+    <div class="max-w-4xl mx-auto py-8 px-4">
+        
+        <!-- EDIT MODE -->
+        <div id="edit-mode-container">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-6 bg-indigo-50 border-b border-indigo-100">
+                    <h2 class="text-2xl font-bold text-indigo-900">Session Script Builder</h2>
+                    <p class="text-indigo-700">Fill in the sections below. Changes update the preview automatically.</p>
                 </div>
-            );
 
-            // --- Views ---
-
-            const renderEditView = () => (
-                <div className="max-w-3xl mx-auto space-y-4 pb-20">
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="p-6 bg-indigo-50 border-b border-indigo-100">
-                            <h2 className="text-2xl font-bold text-indigo-900">Session Script Builder</h2>
-                            <p className="text-indigo-700">Fill in the sections below to generate your session outline.</p>
-                        </div>
-
-                        {/* Part 1 */}
-                        <SectionHeader title="Part 1 — Session Segment" id="part1" isOpen={activeSection === 'part1'} />
-                        {activeSection === 'part1' && (
-                            <div className="p-6 bg-white">
-                                <InputGroup
-                                    label="Briefly describe which part of the session your script will cover"
-                                    value={formData.part1}
-                                    onChange={(v) => updateField('part1', v)}
-                                    textArea
-                                />
-                            </div>
-                        )}
-
-                        {/* Part 2 */}
-                        <SectionHeader title="Part 2 — Abby’s Perspective" id="part2" isOpen={activeSection === 'part2'} />
-                        {activeSection === 'part2' && (
-                            <div className="p-6 bg-white">
-                                <InputGroup label="School concerns" value={formData.part2.school} onChange={(v) => updateField('part2.school', v)} />
-                                <InputGroup label="Home/family concerns" value={formData.part2.home} onChange={(v) => updateField('part2.home', v)} />
-                                <InputGroup label="Peer/romantic concerns" value={formData.part2.peer} onChange={(v) => updateField('part2.peer', v)} />
-                                <InputGroup label="Emotions Abby may express" placeholder="e.g., overwhelmed, frustrated" value={formData.part2.emotions} onChange={(v) => updateField('part2.emotions', v)} />
-                                <InputGroup label="Additional perspective details" value={formData.part2.additional} onChange={(v) => updateField('part2.additional', v)} textArea />
-                            </div>
-                        )}
-
-                        {/* Part 3 */}
-                        <SectionHeader title="Part 3 — Advance Preparation" id="part3" isOpen={activeSection === 'part3'} />
-                        {activeSection === 'part3' && (
-                            <div className="p-6 bg-white">
-                                <p className="mb-4 text-sm text-gray-500 italic">Choose 1–3 areas to elaborate on:</p>
-                                <InputGroup label="Documentation reviewed" placeholder="e.g., attendance, discipline, grades" value={formData.part3.documentation} onChange={(v) => updateField('part3.documentation', v)} />
-                                <InputGroup label="Strength-based preparation" placeholder="e.g., incorporating art" value={formData.part3.strengths} onChange={(v) => updateField('part3.strengths', v)} />
-                                <InputGroup label="Environment setup" placeholder="Privacy, calm space, fidgets..." value={formData.part3.environment} onChange={(v) => updateField('part3.environment', v)} />
-                                <InputGroup label="Planned introductory statements" placeholder="Role, purpose, expectations" value={formData.part3.intro} onChange={(v) => updateField('part3.intro', v)} />
-                            </div>
-                        )}
-
-                        {/* Part 4 */}
-                        <SectionHeader title="Part 4 — Interpersonal Skills" id="part4" isOpen={activeSection === 'part4'} />
-                        {activeSection === 'part4' && (
-                            <div className="p-6 bg-white space-y-6">
-                                <div className="border p-4 rounded bg-gray-50">
-                                    <h4 className="font-bold text-gray-700 mb-3">Skill #1</h4>
-                                    <InputGroup label="Skill Name" value={formData.part4.skill1.name} onChange={(v) => updateField('part4.skill1.name', v)} />
-                                    <InputGroup label="Why selected / How demonstrated" value={formData.part4.skill1.desc} onChange={(v) => updateField('part4.skill1.desc', v)} textArea />
-                                </div>
-                                <div className="border p-4 rounded bg-gray-50">
-                                    <h4 className="font-bold text-gray-700 mb-3">Skill #2</h4>
-                                    <InputGroup label="Skill Name" value={formData.part4.skill2.name} onChange={(v) => updateField('part4.skill2.name', v)} />
-                                    <InputGroup label="Why selected / How demonstrated" value={formData.part4.skill2.desc} onChange={(v) => updateField('part4.skill2.desc', v)} textArea />
-                                </div>
-                                <div className="border p-4 rounded bg-gray-50">
-                                    <h4 className="font-bold text-gray-700 mb-3">Optional Skill</h4>
-                                    <InputGroup label="Skill Name" value={formData.part4.optional.name} onChange={(v) => updateField('part4.optional.name', v)} />
-                                    <InputGroup label="How it will appear" value={formData.part4.optional.desc} onChange={(v) => updateField('part4.optional.desc', v)} />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Part 5 */}
-                        <SectionHeader title="Part 5 — Ethical Principle" id="part5" isOpen={activeSection === 'part5'} />
-                        {activeSection === 'part5' && (
-                            <div className="p-6 bg-white">
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Choose Principle</label>
-                                    <select
-                                        className="w-full p-2 border border-gray-300 rounded-md bg-white"
-                                        value={formData.part5.principle}
-                                        onChange={(e) => updateField('part5.principle', e.target.value)}
-                                    >
-                                        <option>Self-determination (client autonomy)</option>
-                                        <option>Informed consent (role + confidentiality)</option>
-                                        <option>Dignity and worth of the person</option>
-                                        <option>Professional boundaries</option>
-                                    </select>
-                                </div>
-                                <InputGroup label="You will show this ethical standard by:" value={formData.part5.demonstration} onChange={(v) => updateField('part5.demonstration', v)} textArea />
-                            </div>
-                        )}
-
-                        {/* Part 6 */}
-                        <SectionHeader title="Part 6 — Script Flow Map" id="part6" isOpen={activeSection === 'part6'} />
-                        {activeSection === 'part6' && (
-                            <div className="p-6 bg-white space-y-6">
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">A. Opening</h3>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <InputGroup label="Greeting" value={formData.part6.sectionA.greeting} onChange={(v) => updateField('part6.sectionA.greeting', v)} />
-                                        <InputGroup label="Explanation of role" value={formData.part6.sectionA.role} onChange={(v) => updateField('part6.sectionA.role', v)} />
-                                        <InputGroup label="Confidentiality statement" value={formData.part6.sectionA.confidentiality} onChange={(v) => updateField('part6.sectionA.confidentiality', v)} />
-                                        <InputGroup label="Low-pressure engagement starter" value={formData.part6.sectionA.starter} onChange={(v) => updateField('part6.sectionA.starter', v)} />
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">B. Engagement & Rapport</h3>
-                                    <InputGroup label="Reference preparation" placeholder="e.g. art interest" value={formData.part6.sectionB.prepRef} onChange={(v) => updateField('part6.sectionB.prepRef', v)} />
-                                    <InputGroup label="Invitation to converse/activity" value={formData.part6.sectionB.invite} onChange={(v) => updateField('part6.sectionB.invite', v)} />
-                                    <InputGroup label="How you show Skill #1" value={formData.part6.sectionB.skill1Show} onChange={(v) => updateField('part6.sectionB.skill1Show', v)} />
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">C. Abby Shares a Concern</h3>
-                                    <InputGroup label="Description of concern" value={formData.part6.sectionC.concern} onChange={(v) => updateField('part6.sectionC.concern', v)} textArea />
-                                    <InputGroup label="Emotion behind it" value={formData.part6.sectionC.emotion} onChange={(v) => updateField('part6.sectionC.emotion', v)} />
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">D. Apply Skill #1</h3>
-                                    <InputGroup label="Feeling you will reflect back" value={formData.part6.sectionD.feelingReflect} onChange={(v) => updateField('part6.sectionD.feelingReflect', v)} textArea />
-                                    <InputGroup label="Validating statement" value={formData.part6.sectionD.validation} onChange={(v) => updateField('part6.sectionD.validation', v)} textArea />
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">E. Apply Skill #2</h3>
-                                    <InputGroup label="Clarifying/Barrier statement" value={formData.part6.sectionE.clarifying} onChange={(v) => updateField('part6.sectionE.clarifying', v)} textArea />
-                                    <InputGroup label="Follow-up question/prompt" value={formData.part6.sectionE.followup} onChange={(v) => updateField('part6.sectionE.followup', v)} textArea />
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">F. Ethical Reinforcement</h3>
-                                    <InputGroup label="Reinforce autonomy/understanding" value={formData.part6.sectionF.reinforcement} onChange={(v) => updateField('part6.sectionF.reinforcement', v)} textArea />
-                                </div>
-                                <div className="bg-gray-50 p-4 rounded">
-                                    <h3 className="font-bold text-indigo-800 mb-2">G. Closing</h3>
-                                    <InputGroup label="Summary statement" value={formData.part6.sectionG.summary} onChange={(v) => updateField('part6.sectionG.summary', v)} textArea />
-                                    <InputGroup label="Offer for next steps" value={formData.part6.sectionG.nextSteps} onChange={(v) => updateField('part6.sectionG.nextSteps', v)} />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Notes */}
-                        <SectionHeader title="Notes for Myself" id="notes" isOpen={activeSection === 'notes'} />
-                        {activeSection === 'notes' && (
-                            <div className="p-6 bg-white">
-                                <InputGroup label="Any lines or ideas to expand" value={formData.notes} onChange={(v) => updateField('notes', v)} textArea />
-                            </div>
-                        )}
+                <!-- Part 1 -->
+                <button onclick="toggleAccordion('part1')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 1 — Session Segment</span>
+                    <svg id="chevron-part1" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part1" class="accordion-content bg-white border-b">
+                    <div class="p-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Briefly describe which part of the session your script will cover</label>
+                        <textarea id="in-part1" class="w-full p-2 border border-gray-300 rounded-md" rows="3"></textarea>
                     </div>
                 </div>
-            );
 
-            const renderPreviewView = () => (
-                <div id="print-area" className="max-w-4xl mx-auto bg-white p-12 shadow-2xl min-h-screen text-gray-900 leading-relaxed print-shadow-none print-p-0">
-                    <div className="border-b-2 border-gray-800 pb-4 mb-8">
-                        <h1 className="text-3xl font-bold uppercase tracking-wider text-center">Session Outline Script</h1>
-                    </div>
-
-                    {/* Part 1 */}
-                    <section className="mb-8">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 1 — Session Segment</h2>
-                        <div className="mt-3 pl-4">
-                            <p className="font-medium text-gray-600 mb-1 text-sm uppercase">Description</p>
-                            <div className="p-3 bg-gray-50 border border-gray-200 rounded min-h-[3rem] whitespace-pre-wrap">{formData.part1 || '—'}</div>
-                        </div>
-                    </section>
-
-                    {/* Part 2 */}
-                    <section className="mb-8 no-break">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 2 — Abby’s Perspective</h2>
-                        <div className="mt-3 pl-4 grid gap-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="font-medium text-gray-600 text-sm">School concerns</p>
-                                    <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.school}</div>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-gray-600 text-sm">Home/family concerns</p>
-                                    <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.home}</div>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="font-medium text-gray-600 text-sm">Peer/romantic concerns</p>
-                                <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.peer}</div>
-                            </div>
-                            <div>
-                                <p className="font-medium text-gray-600 text-sm">Emotions</p>
-                                <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.emotions}</div>
-                            </div>
-                            <div>
-                                <p className="font-medium text-gray-600 text-sm">Additional Details</p>
-                                <div className="border-b border-gray-300 py-1 min-h-[1.5rem]">{formData.part2.additional}</div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Part 3 */}
-                    <section className="mb-8 no-break">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 3 — Evidence of Preparation</h2>
-                        <div className="mt-3 pl-4 space-y-3">
-                            {formData.part3.documentation && (
-                                <div><span className="font-bold text-sm">Documentation Reviewed:</span> {formData.part3.documentation}</div>
-                            )}
-                            {formData.part3.strengths && (
-                                <div><span className="font-bold text-sm">Strength-based prep:</span> {formData.part3.strengths}</div>
-                            )}
-                            {formData.part3.environment && (
-                                <div><span className="font-bold text-sm">Environment setup:</span> {formData.part3.environment}</div>
-                            )}
-                            {formData.part3.intro && (
-                                <div><span className="font-bold text-sm">Introductory statements:</span> {formData.part3.intro}</div>
-                            )}
-                            {!formData.part3.documentation && !formData.part3.strengths && !formData.part3.environment && !formData.part3.intro && (
-                                <p className="text-gray-400 italic">No preparation details added.</p>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* Part 4 */}
-                    <section className="mb-8 no-break">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 4 — Communication Skills</h2>
-                        <div className="mt-3 pl-4 grid gap-6">
-                            <div>
-                                <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="font-bold text-indigo-900 uppercase">Skill #1:</span>
-                                    <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.skill1.name}</span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-1">Rationale / Demonstration:</p>
-                                <div className="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm">{formData.part4.skill1.desc}</div>
-                            </div>
-                            <div>
-                                <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="font-bold text-indigo-900 uppercase">Skill #2:</span>
-                                    <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.skill2.name}</span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-1">Rationale / Demonstration:</p>
-                                <div className="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm">{formData.part4.skill2.desc}</div>
-                            </div>
-                            {formData.part4.optional.name && (
-                                <div>
-                                    <div className="flex items-baseline gap-2 mb-1">
-                                        <span className="font-bold text-gray-500 uppercase">Optional Skill:</span>
-                                        <span className="text-lg font-medium border-b border-gray-300 px-2 flex-grow">{formData.part4.optional.name}</span>
-                                    </div>
-                                    <div className="text-sm italic">{formData.part4.optional.desc}</div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* Part 5 */}
-                    <section className="mb-8 no-break">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 5 — Ethical Principle</h2>
-                        <div className="mt-3 pl-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="font-bold text-sm text-gray-600">Selected Principle:</span>
-                                <span className="font-bold text-lg">{formData.part5.principle}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-1">Demonstrated by:</p>
-                            <div className="p-3 bg-gray-50 border border-gray-200 rounded whitespace-pre-wrap">{formData.part5.demonstration}</div>
-                        </div>
-                    </section>
-
-                    {/* Part 6 */}
-                    <section className="mb-8">
-                        <h2 className="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide">Part 6 — Script Flow Map</h2>
-                        <div className="mt-4 pl-4 space-y-6">
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">A. Opening</h3>
-                                <ul className="list-disc pl-5 space-y-1">
-                                    <li><span className="font-semibold">Greeting:</span> {formData.part6.sectionA.greeting}</li>
-                                    <li><span className="font-semibold">Role:</span> {formData.part6.sectionA.role}</li>
-                                    <li><span className="font-semibold">Confidentiality:</span> {formData.part6.sectionA.confidentiality}</li>
-                                    <li><span className="font-semibold">Starter:</span> {formData.part6.sectionA.starter}</li>
-                                </ul>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">B. Engagement</h3>
-                                <ul className="list-disc pl-5 space-y-1">
-                                    <li><span className="font-semibold">Prep Reference:</span> {formData.part6.sectionB.prepRef}</li>
-                                    <li><span className="font-semibold">Invite:</span> {formData.part6.sectionB.invite}</li>
-                                    <li><span className="font-semibold">Skill #1 Moment:</span> {formData.part6.sectionB.skill1Show}</li>
-                                </ul>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">C. The Concern</h3>
-                                <div className="pl-2 border-l-2 border-gray-300 mb-2">
-                                    <p className="italic text-gray-700">{formData.part6.sectionC.concern}</p>
-                                </div>
-                                <p><span className="font-semibold">Emotion:</span> {formData.part6.sectionC.emotion}</p>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">D. Applying Skill #1</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 p-3 rounded">
-                                        <span className="block text-xs font-bold uppercase text-gray-500">Reflection</span>
-                                        {formData.part6.sectionD.feelingReflect}
-                                    </div>
-                                    <div className="bg-gray-50 p-3 rounded">
-                                        <span className="block text-xs font-bold uppercase text-gray-500">Validation</span>
-                                        {formData.part6.sectionD.validation}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">E. Applying Skill #2</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 p-3 rounded">
-                                        <span className="block text-xs font-bold uppercase text-gray-500">Barrier/Clarify</span>
-                                        {formData.part6.sectionE.clarifying}
-                                    </div>
-                                    <div className="bg-gray-50 p-3 rounded">
-                                        <span className="block text-xs font-bold uppercase text-gray-500">Follow-Up</span>
-                                        {formData.part6.sectionE.followup}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">F. Ethical Reinforcement</h3>
-                                <p className="pl-2 border-l-2 border-indigo-200">{formData.part6.sectionF.reinforcement}</p>
-                            </div>
-                            <div className="no-break">
-                                <h3 className="font-bold text-indigo-900 border-b border-indigo-200 mb-2">G. Closing</h3>
-                                <p><span className="font-semibold">Summary:</span> {formData.part6.sectionG.summary}</p>
-                                <p className="mt-2"><span className="font-semibold">Next Steps:</span> {formData.part6.sectionG.nextSteps}</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Notes */}
-                    {formData.notes && (
-                        <section className="mb-8 no-break">
-                            <h2 className="text-lg font-bold bg-gray-800 text-white p-2 uppercase text-sm tracking-wide">Notes</h2>
-                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded mt-2 whitespace-pre-wrap font-handwriting">
-                                {formData.notes}
-                            </div>
-                        </section>
-                    )}
-
-                    <div className="mt-12 pt-4 border-t border-gray-300 text-center text-gray-400 text-sm">
-                        Generated via Session Outline Tool
+                <!-- Part 2 -->
+                <button onclick="toggleAccordion('part2')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 2 — Abby’s Perspective</span>
+                    <svg id="chevron-part2" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part2" class="accordion-content bg-white border-b">
+                    <div class="p-6 space-y-4">
+                        <div><label class="block text-sm font-medium text-gray-700">School concerns</label><input type="text" id="in-school" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Home/family concerns</label><input type="text" id="in-home" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Peer/romantic concerns</label><input type="text" id="in-peer" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Emotions</label><input type="text" id="in-emotions" class="w-full p-2 border rounded-md" placeholder="e.g., overwhelmed, frustrated"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Additional details</label><textarea id="in-additional" class="w-full p-2 border rounded-md" rows="2"></textarea></div>
                     </div>
                 </div>
-            );
 
-            return (
-                <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
-                    <div className="bg-white border-b border-gray-200 sticky top-0 z-10 print-hidden shadow-sm">
-                        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <IconFileText className="text-indigo-600" />
-                                <span className="font-bold text-xl text-gray-800">OutlineGen</span>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setViewMode('edit')}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                                        viewMode === 'edit' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    <IconEdit size={18} />
-                                    <span className="hidden sm:inline">Edit</span>
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('preview')}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                                        viewMode === 'preview' ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    <IconFileText size={18} />
-                                    <span className="hidden sm:inline">Preview</span>
-                                </button>
-                                <button
-                                    onClick={handlePrint}
-                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-colors ml-2"
-                                >
-                                    <IconPrinter size={18} />
-                                    <span className="hidden sm:inline">Print / PDF</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="py-8 px-4 print-p-0">
-                        {viewMode === 'edit' ? renderEditView() : renderPreviewView()}
+                <!-- Part 3 -->
+                <button onclick="toggleAccordion('part3')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 3 — Advance Preparation</span>
+                    <svg id="chevron-part3" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part3" class="accordion-content bg-white border-b">
+                    <div class="p-6 space-y-4">
+                        <p class="text-sm text-gray-500 italic">Choose 1–3 areas to elaborate on:</p>
+                        <div><label class="block text-sm font-medium text-gray-700">Documentation reviewed</label><input type="text" id="in-doc" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Strength-based preparation</label><input type="text" id="in-strength" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Environment setup</label><input type="text" id="in-env" class="w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Introductory statements</label><input type="text" id="in-intro" class="w-full p-2 border rounded-md"></div>
                     </div>
                 </div>
-            );
+
+                <!-- Part 4 -->
+                <button onclick="toggleAccordion('part4')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 4 — Interpersonal Skills</span>
+                    <svg id="chevron-part4" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part4" class="accordion-content bg-white border-b">
+                    <div class="p-6 space-y-6">
+                        <div class="border p-4 rounded bg-gray-50">
+                            <h4 class="font-bold text-gray-700 mb-2">Skill #1</h4>
+                            <input type="text" id="in-s1-name" placeholder="Skill Name" class="w-full p-2 border rounded-md mb-2">
+                            <textarea id="in-s1-desc" placeholder="Why selected / How demonstrated" class="w-full p-2 border rounded-md" rows="2"></textarea>
+                        </div>
+                        <div class="border p-4 rounded bg-gray-50">
+                            <h4 class="font-bold text-gray-700 mb-2">Skill #2</h4>
+                            <input type="text" id="in-s2-name" placeholder="Skill Name" class="w-full p-2 border rounded-md mb-2">
+                            <textarea id="in-s2-desc" placeholder="Why selected / How demonstrated" class="w-full p-2 border rounded-md" rows="2"></textarea>
+                        </div>
+                        <div class="border p-4 rounded bg-gray-50">
+                            <h4 class="font-bold text-gray-700 mb-2">Optional Skill</h4>
+                            <input type="text" id="in-opt-name" placeholder="Skill Name" class="w-full p-2 border rounded-md mb-2">
+                            <input type="text" id="in-opt-desc" placeholder="How it will appear" class="w-full p-2 border rounded-md">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Part 5 -->
+                <button onclick="toggleAccordion('part5')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 5 — Ethical Principle</span>
+                    <svg id="chevron-part5" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part5" class="accordion-content bg-white border-b">
+                    <div class="p-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Choose Principle</label>
+                        <select id="in-principle" class="w-full p-2 border border-gray-300 rounded-md bg-white mb-4">
+                            <option>Self-determination (client autonomy)</option>
+                            <option>Informed consent (role + confidentiality)</option>
+                            <option>Dignity and worth of the person</option>
+                            <option>Professional boundaries</option>
+                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Demonstration</label>
+                        <textarea id="in-demo" class="w-full p-2 border rounded-md" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <!-- Part 6 -->
+                <button onclick="toggleAccordion('part6')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Part 6 — Script Flow Map</span>
+                    <svg id="chevron-part6" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-part6" class="accordion-content bg-white border-b">
+                    <div class="p-6 space-y-6">
+                        <!-- A -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">A. Opening</h3>
+                            <div class="space-y-2">
+                                <input type="text" id="in-a-greet" placeholder="Greeting" class="w-full p-2 border rounded-md">
+                                <input type="text" id="in-a-role" placeholder="Explanation of role" class="w-full p-2 border rounded-md">
+                                <input type="text" id="in-a-conf" placeholder="Confidentiality statement" class="w-full p-2 border rounded-md">
+                                <input type="text" id="in-a-start" placeholder="Low-pressure starter" class="w-full p-2 border rounded-md">
+                            </div>
+                        </div>
+                        <!-- B -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">B. Engagement</h3>
+                            <div class="space-y-2">
+                                <input type="text" id="in-b-prep" placeholder="Ref. preparation (e.g. art)" class="w-full p-2 border rounded-md">
+                                <input type="text" id="in-b-invite" placeholder="Invite conversation" class="w-full p-2 border rounded-md">
+                                <input type="text" id="in-b-skill" placeholder="Show Skill #1" class="w-full p-2 border rounded-md">
+                            </div>
+                        </div>
+                        <!-- C -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">C. Concern</h3>
+                            <textarea id="in-c-concern" placeholder="Describe concern" class="w-full p-2 border rounded-md mb-2" rows="2"></textarea>
+                            <input type="text" id="in-c-emotion" placeholder="Emotion behind it" class="w-full p-2 border rounded-md">
+                        </div>
+                        <!-- D -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">D. Apply Skill #1</h3>
+                            <textarea id="in-d-reflect" placeholder="Feeling reflection" class="w-full p-2 border rounded-md mb-2" rows="2"></textarea>
+                            <textarea id="in-d-valid" placeholder="Validating statement" class="w-full p-2 border rounded-md" rows="2"></textarea>
+                        </div>
+                        <!-- E -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">E. Apply Skill #2</h3>
+                            <textarea id="in-e-clarify" placeholder="Clarifying/Barrier" class="w-full p-2 border rounded-md mb-2" rows="2"></textarea>
+                            <textarea id="in-e-follow" placeholder="Follow-up/Prompt" class="w-full p-2 border rounded-md" rows="2"></textarea>
+                        </div>
+                        <!-- F -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">F. Ethical Reinforcement</h3>
+                            <textarea id="in-f-reinforce" placeholder="Reinforce autonomy" class="w-full p-2 border rounded-md" rows="2"></textarea>
+                        </div>
+                        <!-- G -->
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h3 class="font-bold text-indigo-800 mb-2">G. Closing</h3>
+                            <textarea id="in-g-sum" placeholder="Summary" class="w-full p-2 border rounded-md mb-2" rows="2"></textarea>
+                            <input type="text" id="in-g-next" placeholder="Next steps" class="w-full p-2 border rounded-md">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <button onclick="toggleAccordion('notes')" class="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-gray-50 text-left">
+                    <span class="font-semibold text-lg text-gray-800">Notes for Myself</span>
+                    <svg id="chevron-notes" class="chevron w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="content-notes" class="accordion-content bg-white">
+                    <div class="p-6">
+                        <textarea id="in-notes" class="w-full p-2 border border-gray-300 rounded-md" rows="4"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PREVIEW MODE -->
+        <div id="preview-mode-container" class="hidden bg-white p-12 shadow-2xl min-h-screen text-gray-900 leading-relaxed">
+            <div class="border-b-2 border-gray-800 pb-4 mb-8">
+                <h1 class="text-3xl font-bold uppercase tracking-wider text-center">Session Outline Script</h1>
+            </div>
+
+            <!-- Preview Sections -->
+            
+            <section class="mb-8">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 1 — Session Segment</h2>
+                <div class="mt-3 pl-4">
+                    <p class="font-medium text-gray-600 mb-1 text-sm uppercase">Description</p>
+                    <div id="out-part1" class="p-3 bg-gray-50 border border-gray-200 rounded min-h-[3rem] whitespace-pre-wrap"></div>
+                </div>
+            </section>
+
+            <section class="mb-8 break-inside-avoid">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 2 — Abby’s Perspective</h2>
+                <div class="mt-3 pl-4 grid gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-medium text-gray-600 text-sm">School concerns</p>
+                            <div id="out-school" class="border-b border-gray-300 py-1 min-h-[1.5rem]"></div>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-600 text-sm">Home/family concerns</p>
+                            <div id="out-home" class="border-b border-gray-300 py-1 min-h-[1.5rem]"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-600 text-sm">Peer/romantic concerns</p>
+                        <div id="out-peer" class="border-b border-gray-300 py-1 min-h-[1.5rem]"></div>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-600 text-sm">Emotions</p>
+                        <div id="out-emotions" class="border-b border-gray-300 py-1 min-h-[1.5rem]"></div>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-600 text-sm">Additional Details</p>
+                        <div id="out-additional" class="border-b border-gray-300 py-1 min-h-[1.5rem]"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-8 break-inside-avoid">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 3 — Preparation</h2>
+                <div class="mt-3 pl-4 space-y-3" id="part3-output-container">
+                    <div id="out-doc-wrapper" class="hidden"><span class="font-bold text-sm">Documentation:</span> <span id="out-doc"></span></div>
+                    <div id="out-strength-wrapper" class="hidden"><span class="font-bold text-sm">Strength-based:</span> <span id="out-strength"></span></div>
+                    <div id="out-env-wrapper" class="hidden"><span class="font-bold text-sm">Environment:</span> <span id="out-env"></span></div>
+                    <div id="out-intro-wrapper" class="hidden"><span class="font-bold text-sm">Introductory:</span> <span id="out-intro"></span></div>
+                    <p id="out-part3-empty" class="text-gray-400 italic">No details added.</p>
+                </div>
+            </section>
+
+            <section class="mb-8 break-inside-avoid">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 4 — Skills</h2>
+                <div class="mt-3 pl-4 grid gap-6">
+                    <div>
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span class="font-bold text-indigo-900 uppercase">Skill #1:</span>
+                            <span id="out-s1-name" class="text-lg font-medium border-b border-gray-300 px-2 flex-grow"></span>
+                        </div>
+                        <div id="out-s1-desc" class="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm"></div>
+                    </div>
+                    <div>
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span class="font-bold text-indigo-900 uppercase">Skill #2:</span>
+                            <span id="out-s2-name" class="text-lg font-medium border-b border-gray-300 px-2 flex-grow"></span>
+                        </div>
+                        <div id="out-s2-desc" class="p-2 bg-gray-50 border-l-2 border-gray-300 text-sm"></div>
+                    </div>
+                    <div id="out-opt-wrapper" class="hidden">
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span class="font-bold text-gray-500 uppercase">Optional:</span>
+                            <span id="out-opt-name" class="text-lg font-medium border-b border-gray-300 px-2 flex-grow"></span>
+                        </div>
+                        <div id="out-opt-desc" class="text-sm italic"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-8 break-inside-avoid">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 5 — Ethical Principle</h2>
+                <div class="mt-3 pl-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="font-bold text-sm text-gray-600">Selected:</span>
+                        <span id="out-principle" class="font-bold text-lg"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-1">Demonstrated by:</p>
+                    <div id="out-demo" class="p-3 bg-gray-50 border border-gray-200 rounded whitespace-pre-wrap"></div>
+                </div>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="text-lg font-bold bg-gray-100 p-2 border-l-4 border-gray-800 uppercase text-sm tracking-wide section-header">Part 6 — Flow Map</h2>
+                <div class="mt-4 pl-4 space-y-6">
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">A. Opening</h3>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-semibold">Greeting:</span> <span id="out-a-greet"></span></li>
+                            <li><span class="font-semibold">Role:</span> <span id="out-a-role"></span></li>
+                            <li><span class="font-semibold">Confidentiality:</span> <span id="out-a-conf"></span></li>
+                            <li><span class="font-semibold">Starter:</span> <span id="out-a-start"></span></li>
+                        </ul>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">B. Engagement</h3>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-semibold">Prep Ref:</span> <span id="out-b-prep"></span></li>
+                            <li><span class="font-semibold">Invite:</span> <span id="out-b-invite"></span></li>
+                            <li><span class="font-semibold">Skill #1:</span> <span id="out-b-skill"></span></li>
+                        </ul>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">C. Concern</h3>
+                        <p id="out-c-concern" class="pl-2 border-l-2 border-gray-300 mb-2 italic text-gray-700"></p>
+                        <p><span class="font-semibold">Emotion:</span> <span id="out-c-emotion"></span></p>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">D. Applying Skill #1</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-3 rounded"><span class="block text-xs font-bold uppercase text-gray-500">Reflection</span><span id="out-d-reflect"></span></div>
+                            <div class="bg-gray-50 p-3 rounded"><span class="block text-xs font-bold uppercase text-gray-500">Validation</span><span id="out-d-valid"></span></div>
+                        </div>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">E. Applying Skill #2</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-3 rounded"><span class="block text-xs font-bold uppercase text-gray-500">Barrier/Clarify</span><span id="out-e-clarify"></span></div>
+                            <div class="bg-gray-50 p-3 rounded"><span class="block text-xs font-bold uppercase text-gray-500">Follow-Up</span><span id="out-e-follow"></span></div>
+                        </div>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">F. Reinforcement</h3>
+                        <p id="out-f-reinforce" class="pl-2 border-l-2 border-indigo-200"></p>
+                    </div>
+                    <div class="break-inside-avoid">
+                        <h3 class="font-bold text-indigo-900 border-b border-indigo-200 mb-2">G. Closing</h3>
+                        <p><span class="font-semibold">Summary:</span> <span id="out-g-sum"></span></p>
+                        <p class="mt-2"><span class="font-semibold">Next Steps:</span> <span id="out-g-next"></span></p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="notes-section" class="mb-8 break-inside-avoid hidden">
+                <h2 class="text-lg font-bold bg-gray-800 text-white p-2 uppercase text-sm tracking-wide">Notes</h2>
+                <div id="out-notes" class="p-4 bg-yellow-50 border border-yellow-200 rounded mt-2 whitespace-pre-wrap font-handwriting"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- LOGIC -->
+    <script>
+        // --- View Switching ---
+        function switchView(mode) {
+            const editContainer = document.getElementById('edit-mode-container');
+            const previewContainer = document.getElementById('preview-mode-container');
+            const btnEdit = document.getElementById('btn-edit');
+            const btnPreview = document.getElementById('btn-preview');
+
+            if (mode === 'edit') {
+                editContainer.classList.remove('hidden');
+                previewContainer.classList.add('hidden');
+                btnEdit.className = "flex items-center gap-2 px-4 py-2 rounded-md transition-colors bg-indigo-100 text-indigo-700 font-medium";
+                btnPreview.className = "flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-gray-600 hover:bg-gray-100";
+            } else {
+                editContainer.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+                btnEdit.className = "flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-gray-600 hover:bg-gray-100";
+                btnPreview.className = "flex items-center gap-2 px-4 py-2 rounded-md transition-colors bg-indigo-100 text-indigo-700 font-medium";
+            }
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // --- Accordion Logic ---
+        function toggleAccordion(id) {
+            const content = document.getElementById(`content-${id}`);
+            const chevron = document.getElementById(`chevron-${id}`);
+            
+            // Toggle current
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                chevron.classList.remove('rotate');
+            } else {
+                // Close others (optional, but cleaner)
+                document.querySelectorAll('.accordion-content').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.chevron').forEach(el => el.classList.remove('rotate'));
+                
+                content.classList.add('active');
+                chevron.classList.add('rotate');
+            }
+        }
+
+        // --- Data Binding Logic ---
+        // Maps Input ID to Output ID
+        const bindings = [
+            ['in-part1', 'out-part1'],
+            ['in-school', 'out-school'], ['in-home', 'out-home'], ['in-peer', 'out-peer'], ['in-emotions', 'out-emotions'], ['in-additional', 'out-additional'],
+            ['in-doc', 'out-doc'], ['in-strength', 'out-strength'], ['in-env', 'out-env'], ['in-intro', 'out-intro'],
+            ['in-s1-name', 'out-s1-name'], ['in-s1-desc', 'out-s1-desc'],
+            ['in-s2-name', 'out-s2-name'], ['in-s2-desc', 'out-s2-desc'],
+            ['in-opt-name', 'out-opt-name'], ['in-opt-desc', 'out-opt-desc'],
+            ['in-principle', 'out-principle'], ['in-demo', 'out-demo'],
+            ['in-a-greet', 'out-a-greet'], ['in-a-role', 'out-a-role'], ['in-a-conf', 'out-a-conf'], ['in-a-start', 'out-a-start'],
+            ['in-b-prep', 'out-b-prep'], ['in-b-invite', 'out-b-invite'], ['in-b-skill', 'out-b-skill'],
+            ['in-c-concern', 'out-c-concern'], ['in-c-emotion', 'out-c-emotion'],
+            ['in-d-reflect', 'out-d-reflect'], ['in-d-valid', 'out-d-valid'],
+            ['in-e-clarify', 'out-e-clarify'], ['in-e-follow', 'out-e-follow'],
+            ['in-f-reinforce', 'out-f-reinforce'],
+            ['in-g-sum', 'out-g-sum'], ['in-g-next', 'out-g-next'],
+            ['in-notes', 'out-notes']
+        ];
+
+        // Attach Event Listeners
+        bindings.forEach(([inId, outId]) => {
+            const input = document.getElementById(inId);
+            const output = document.getElementById(outId);
+            if (input && output) {
+                // Initial set
+                output.innerText = input.value;
+                // Update on change
+                input.addEventListener('input', (e) => {
+                    output.innerText = e.target.value;
+                    handleConditionalVisibility();
+                });
+            }
+        });
+
+        // Special handling for visibility based on content
+        function handleConditionalVisibility() {
+            // Part 3 Empty State
+            const doc = document.getElementById('in-doc').value;
+            const str = document.getElementById('in-strength').value;
+            const env = document.getElementById('in-env').value;
+            const intro = document.getElementById('in-intro').value;
+
+            document.getElementById('out-doc-wrapper').classList.toggle('hidden', !doc);
+            document.getElementById('out-strength-wrapper').classList.toggle('hidden', !str);
+            document.getElementById('out-env-wrapper').classList.toggle('hidden', !env);
+            document.getElementById('out-intro-wrapper').classList.toggle('hidden', !intro);
+            document.getElementById('out-part3-empty').classList.toggle('hidden', doc || str || env || intro);
+
+            // Optional Skill
+            const optName = document.getElementById('in-opt-name').value;
+            document.getElementById('out-opt-wrapper').classList.toggle('hidden', !optName);
+
+            // Notes
+            const notes = document.getElementById('in-notes').value;
+            document.getElementById('notes-section').classList.toggle('hidden', !notes);
+        }
+
+        // Set default Principle
+        document.getElementById('in-principle').value = 'Self-determination (client autonomy)';
+        document.getElementById('out-principle').innerText = 'Self-determination (client autonomy)';
+
+        // Open first section by default
+        toggleAccordion('part1');
+        handleConditionalVisibility();
+
     </script>
 </body>
 </html>
